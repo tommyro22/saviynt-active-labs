@@ -1,5 +1,13 @@
 # Step 1: Analyze the Threat & Detect Active Sessions
 
+### 0. Bootstrap the Vulnerable Target
+Before we begin the investigation, let's provision the mock database server and simulate the leaked credential scenario. 
+
+Click the command below to build the vulnerable environment:
+`curl -s https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh | tr -d '\r' | bash`{{exec}}
+
+---
+
 Let's locate the leaked credential on the host and identify running connections.
 
 ### 1. View the Exposed Key
