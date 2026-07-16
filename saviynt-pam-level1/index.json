@@ -1,0 +1,21 @@
+{
+  "title": "Saviynt Active-Lab: Zero Trust PAM & JIT SSH",
+  "description": "Experience the security chaos of static credentials and learn to secure workloads dynamically using Saviynt's Cloud PAM workflow principles.",
+  "difficulty": "Beginner",
+  "time": "15 minutes",
+  "backend": {
+    "imageid": "ubuntu"
+  },
+  "steps": [
+    {
+      "title": "Analyze the Threat & Detect Active Session",
+      "text": "step1.md"
+    }
+  ],
+  "intro": {
+    "text": "intro.md"
+  },
+  "finish": {
+    "text": "finish.md"
+  }
+}
