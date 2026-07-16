@@ -1,4 +1,5 @@
 #!/bin/bash
+clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
 # 1. Create target deploy-admin user
