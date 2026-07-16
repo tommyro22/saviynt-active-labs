@@ -1,23 +1,23 @@
 #!/bin/bash
-exec > /var/log/killercoda-bootstrap.log 2>&1
+echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
 # 1. Create target deploy-admin user
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
 chmod 700 /home/deploy-admin/.ssh
 
-# Generate a mock "leaked" static key pair
+# 2. Generate a mock "leaked" static key pair
 ssh-keygen -t rsa -b 2048 -f /tmp/leaked_id_rsa -N "" -q
 cat /tmp/leaked_id_rsa.pub > /home/deploy-admin/.ssh/authorized_keys
 mv /tmp/leaked_id_rsa /home/deploy-admin/leaked_key.pem
 chmod 600 /home/deploy-admin/.ssh/authorized_keys
 chown -R deploy-admin:deploy-admin /home/deploy-admin/
 
-# 2. Simulate active, un-audited background contractor activity
+# 3. Simulate active, un-audited background contractor activity
 echo "Jul 16 14:22:15 target-server sshd[1234]: Accepted publickey for deploy-admin from 198.51.100.42 port 49152 ssh2: RSA SHA256:leakedfingerprint..." >> /var/log/auth.log
-sudo -u deploy-admin sleep 3600 &
+nohup sudo -u deploy-admin sleep 3600 > /dev/null 2>&1 &
 
-# 3. Write the simulated Saviynt CLI tool
+# 4. Write the simulated Saviynt CLI tool
 cat << 'EOF' > /usr/local/bin/saviynt-cli
 #!/bin/bash
 GREEN='\033[0;32m'
@@ -37,7 +37,6 @@ if [ "$1" == "onboard" ]; then
     show_banner
     echo -e "${YELLOW}[*] Onboarding server to Saviynt EIC Platform...${NC}"
     sleep 2
-    # Simulate a Zero Trust Lockdown of local SSH authorization
     chown root:root /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
     echo -e "${GREEN}[+] Server 'linux-prod-target' successfully registered!${NC}"
@@ -71,7 +70,6 @@ if [ "$1" == "request-jit" ]; then
     echo -e "Temporary private key: /tmp/jit_temp_key"
     echo -e "Command to test: ${YELLOW}ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost${NC}"
     
-    # Pruning Daemon Simulation
     (
         sleep $DURATION
         TEMP_KEY_CONTENT=$(cat /tmp/jit_temp_key.pub 2>/dev/null)
@@ -105,4 +103,7 @@ echo "  saviynt-cli audit-logs                   View immutable IGA audit events
 EOF
 
 chmod +x /usr/local/bin/saviynt-cli
-touch /var/log/killercoda-setup-done
+
+echo -e "\e[32m[+] Vulnerable Environment Ready.\e[0m"
+sleep 2
+clear
