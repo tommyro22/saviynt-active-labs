@@ -8,8 +8,16 @@
   },
   "steps": [
     {
-      "title": "Analyze the Threat & Detect Active Session",
+      "title": "Analyze the Threat & Detect Active Sessions",
       "text": "step1.md"
+    },
+    {
+      "title": "The Fragility of Manual JIT Scripting",
+      "text": "step2.md"
+    },
+    {
+      "title": "Mitigating Access with Saviynt Cloud PAM Principles",
+      "text": "step3.md"
     }
   ],
   "intro": {
