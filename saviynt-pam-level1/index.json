@@ -6,24 +6,26 @@
   "backend": {
     "imageid": "ubuntu"
   },
-  "steps": [
-    {
-      "title": "Analyze the Threat & Detect Active Sessions",
-      "text": "step1.md"
+  "details": {
+    "steps": [
+      {
+        "title": "Analyze the Threat & Detect Active Sessions",
+        "text": "step1.md"
+      },
+      {
+        "title": "The Fragility of Manual JIT Scripting",
+        "text": "step2.md"
+      },
+      {
+        "title": "Mitigating Access with Saviynt Cloud PAM Principles",
+        "text": "step3.md"
+      }
+    ],
+    "intro": {
+      "text": "intro.md"
     },
-    {
-      "title": "The Fragility of Manual JIT Scripting",
-      "text": "step2.md"
-    },
-    {
-      "title": "Mitigating Access with Saviynt Cloud PAM Principles",
-      "text": "step3.md"
+    "finish": {
+      "text": "finish.md"
     }
-  ],
-  "intro": {
-    "text": "intro.md"
-  },
-  "finish": {
-    "text": "finish.md"
   }
 }
