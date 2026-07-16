@@ -1,0 +1,4 @@
+# Step 1: Analyze the Threat
+
+Verify the leaked private key exists on your local system:
+`cat /home/deploy-admin/leaked_key.pem`{{exec}}
