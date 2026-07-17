@@ -98,18 +98,26 @@ if [ "$1" == "request-jit" ]; then
     CONTRACTOR="$2"
     DURATION="$3"
     
-    echo -e "${YELLOW}[*] Interrogating Saviynt upstream Policy Engine...${NC}"
+  echo -e "${YELLOW}[*] Interrogating Saviynt upstream Policy Engine...${NC}"
     sleep 1
     echo -e "${GREEN}[+] Dynamic JIT request approved for Identity: $CONTRACTOR${NC}"
     echo -e "${YELLOW}[*] Temporarily cycling system immutable bits for safe injection...${NC}"
     
+    # FIX: Force-delete old ephemeral keys to suppress the overwrite prompt
+    rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
+    
+    # Temporarily drop immutability window to execute programmatic injection
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     
+    # Generate the fresh ephemeral key pair cleanly
     ssh-keygen -t rsa -b 2048 -f /tmp/jit_temp_key -N "" -q
     cat /tmp/jit_temp_key.pub >> /home/deploy-admin/.ssh/authorized_keys
+    
+    # Enforce strict ownership and lock permissions
     chown root:root /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
+    # Re-apply the immutable bit to lock down the file structure
     chattr +i /home/deploy-admin/.ssh/authorized_keys
     
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
