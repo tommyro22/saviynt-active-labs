@@ -1,5 +1,6 @@
 #!/bin/bash
 clear
+service ssh start > /dev/null 2>&1
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
 # 1. Dynamically locate the native 'w' binary and restore clean slate if re-run
@@ -67,17 +68,13 @@ if [ "$1" == "onboard" ]; then
     echo -e "${YELLOW}[*] Registering host 'linux-prod-db01' with Saviynt IGA Control Plane...${NC}"
     sleep 1.5
     
-    # REMEDIATION: Wipe the compromised static keys file entirely
+ # REMEDIATION: Wipe the compromised static keys file entirely
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     > /home/deploy-admin/.ssh/authorized_keys
-    chown root:root /home/deploy-admin/.ssh/authorized_keys
-    chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
-    # RESTORATION: Automatically restore the genuine 'w' binary to clear fake sessions
-    W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
-    if [ -f "${W_PATH}.bak" ]; then
-        mv "${W_PATH}.bak" "$W_PATH"
-    fi
+    # FIX: Restore correct ownership for SSHd StrictModes, rely on chattr for lockdown
+    chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
+    chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
     # THE STEEL CAGE: Make the file completely immutable at the kernel layer
     chattr +i /home/deploy-admin/.ssh/authorized_keys
@@ -106,16 +103,20 @@ if [ "$1" == "request-jit" ]; then
     # FIX: Force-delete old ephemeral keys to suppress the overwrite prompt
     rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
     
-    # Temporarily drop immutability window to execute programmatic injection
+    # # Temporarily drop immutability window to execute programmatic injection
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     
     # Generate the fresh ephemeral key pair cleanly
+    rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
     ssh-keygen -t rsa -b 2048 -f /tmp/jit_temp_key -N "" -q
     cat /tmp/jit_temp_key.pub >> /home/deploy-admin/.ssh/authorized_keys
     
-    # Enforce strict ownership and lock permissions
-    chown root:root /home/deploy-admin/.ssh/authorized_keys
+    # FIX: Maintain StrictModes compliance while locking the file
+    chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
+    
+    # Instantly lock back down to block manual configuration drift
+    chattr +i /home/deploy-admin/.ssh/authorized_keys
     
     # Re-apply the immutable bit to lock down the file structure
     chattr +i /home/deploy-admin/.ssh/authorized_keys
