@@ -40,21 +40,27 @@ saviynt-cli request-jit contractor.name@partner.com 15
 
 ---
 
-### 3. Verification & Automated Expiration
-Run this single-use validation command to execute a check across the tunnel and automatically disconnect:
+### 3. Verification & The Frictionless Developer Experience
+While the 15-second countdown is active, execute the provided SSH command to verify the agent successfully opened the access path:
+
 ```bash
-ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost "whoami"
+ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost
 ```{{exec}}
 
-Wait 15 seconds for the token timer to hit zero, then attempt the exact same connection:
+* **The Experience:** Notice that you are now dropped directly into the `deploy-admin@linux-prod-db01` shell environment. Run a quick check command to see who you are:
+
 ```bash
-ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost "whoami"
+whoami
 ```{{exec}}
 
-* **The Result:** The second connection is instantly rejected. 
-* **The Business Value:** Human error is completely removed from the cleanup phase. There is no background script to fail, no cron job to get deleted, and no reboot vulnerability. The platform handles the automated lifecycle of the access window natively.
+* **The Clean Exit:** When you are done exploring the temporary environment, type **`exit`** and hit Enter to return safely to your `root` engineering terminal line:
 
----
+```bash
+exit
+```{{exec}}
+
+* **The Developer Objection:** *"Enterprise PAM tools force us to use clunky web portals, slow jump boxes, or proprietary connection managers. It breaks our native workflows and slows down incident response during 3 AM outages."*
+* **The Business Value (Native UX):** Notice what *didn't* happen here. The contractor didn't have to log into a separate portal or learn a new tool. They used the exact same native Linux `ssh` command they always use. Saviynt handles the complex cryptography and authorization on the backend, preserving a **100% frictionless, native user experience** for the engineering teams. High security, zero operational drag.
 
 ### 4. Side-by-Side Log Analysis: Host vs. Identity View
 Compare what the local operating system logged against what Saviynt captured.
