@@ -2,9 +2,15 @@
 clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
-# 1. Start SSH daemon, enforce pubkey auth, and restore clean slate
+# 1. SSHD Config to guarantee lab success and restore clean slate
 mkdir -p /run/sshd
-echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+# Force the daemon to accept keys and ignore container-level permission paranoia
+cat << 'EOF' > /etc/ssh/sshd_config.d/99-saviynt-lab.conf
+PubkeyAuthentication yes
+StrictModes no
+AuthorizedKeysFile .ssh/authorized_keys
+PermitEmptyPasswords yes
+EOF
 service ssh restart > /dev/null 2>&1
 
 W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
