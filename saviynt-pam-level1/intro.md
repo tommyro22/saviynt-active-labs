@@ -16,4 +16,4 @@ At 02:14 AM, an external Threat Intelligence monitoring tool flagged a public Gi
 ### Your Mission
 You must investigate the active environment, attempt a manual stop-gap fix using standard Linux commands (to understand why traditional administrative methods fail), and then implement **Saviynt Cloud PAM Just-In-Time (JIT) workflow principles** to secure the server without disrupting business operations.
 ### The Deliverable 
-You will maintain a two-part Incident Report to document your findings—first using raw Linux logs, then upgrading it with Saviynt’s identity telemetry to expose critical security blindspots.
+You will maintain a two-part Incident Report to document your findings, first using raw Linux logs, then upgrading it with Saviynt’s identity telemetry to expose critical security blindspots.
