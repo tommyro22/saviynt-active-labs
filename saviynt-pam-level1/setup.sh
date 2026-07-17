@@ -10,9 +10,13 @@ fi
 userdel -r deploy-admin 2>/dev/null
 rm -f /usr/local/bin/w /tmp/jit_token
 
-# 2. Create target deploy-admin user
+# 2. Create target deploy-admin user and assign dangerous privileges
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
+
+# INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment gateway commands
+echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
+chmod 440 /etc/sudoers.d/deploy-admin
 
 # 3. Create the "Leaked Key" narrative (Simulating the vulnerability)
 echo "ssh-rsa AAAAB3_leaked_hacker_key..." > /home/deploy-admin/.ssh/authorized_keys
