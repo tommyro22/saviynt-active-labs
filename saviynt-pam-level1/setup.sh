@@ -6,10 +6,14 @@ echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
 userdel -r deploy-admin 2>/dev/null
 
-# 2. Create target deploy-admin user
+# 2. Create target deploy-admin user and assign dangerous privileges
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
 chmod 700 /home/deploy-admin/.ssh
+
+# INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment commands
+echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
+chmod 440 /etc/sudoers.d/deploy-admin
 
 # 3. Generate a mock "leaked" static key pair matching the incident scope
 ssh-keygen -t rsa -b 2048 -f /tmp/leaked_id_rsa -N "" -q
