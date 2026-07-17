@@ -1,5 +1,9 @@
 #!/bin/bash
 clear
+# Force the environment to match the narrative with a legitimate Private IP
+hostname linux-prod-db01
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
+echo "$PRIVATE_IP linux-prod-db01" >> /etc/hosts
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
 # 1. Clean slate
