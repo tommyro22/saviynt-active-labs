@@ -2,47 +2,25 @@
 clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
-# 1. Bulldoze SSHD Config to guarantee lab success and restore clean slate
-mkdir -p /run/sshd
-cat << 'EOF' > /etc/ssh/sshd_config.d/99-saviynt-lab.conf
-PubkeyAuthentication yes
-StrictModes no
-AuthorizedKeysFile .ssh/authorized_keys
-PermitEmptyPasswords yes
-EOF
-service ssh restart > /dev/null 2>&1
-
+# 1. Clean slate
 W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
 if [ -f "${W_PATH}.bak" ]; then
     mv "${W_PATH}.bak" "$W_PATH"
 fi
-chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
 userdel -r deploy-admin 2>/dev/null
-rm -f /usr/local/bin/w
+rm -f /usr/local/bin/w /tmp/jit_token
 
-# 2. Create target deploy-admin user and assign dangerous privileges
+# 2. Create target deploy-admin user
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
 
-# INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment gateway commands
-echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
-chmod 440 /etc/sudoers.d/deploy-admin
-
-# 3. Generate a mock "leaked" static key pair matching the incident scope (ED25519)
-ssh-keygen -t ed25519 -f /tmp/leaked_id_rsa -N "" -q
-cat /tmp/leaked_id_rsa.pub > /home/deploy-admin/.ssh/authorized_keys
-mv /tmp/leaked_id_rsa /home/deploy-admin/leaked_key.pem
-
-# ENFORCE STRICT SSH DIRECTORY PERMISSIONS
+# 3. Create the "Leaked Key" narrative (Simulating the vulnerability)
+echo "ssh-rsa AAAAB3_leaked_hacker_key..." > /home/deploy-admin/.ssh/authorized_keys
 chown -R deploy-admin:deploy-admin /home/deploy-admin
-chmod 755 /home/deploy-admin
-chmod 700 /home/deploy-admin/.ssh
-chmod 600 /home/deploy-admin/.ssh/authorized_keys
 
-# 4. Simulate active, un-audited background contractor/attacker connections in auth.log
-echo "Jul 17 02:15:12 linux-prod-db01 sshd[4321]: Accepted publickey for deploy-admin from 198.51.100.42 port 49152 ssh2: ED25519 SHA256:leakedfingerprint..." >> /var/log/auth.log
-echo "Jul 17 02:18:44 linux-prod-db01 sshd[4325]: Accepted publickey for deploy-admin from 203.0.113.88 port 51002 ssh2: ED25519 SHA256:leakedfingerprint..." >> /var/log/auth.log
-nohup sudo -u deploy-admin sleep 3600 > /dev/null 2>&1 &
+# 4. Simulate active hacker connections in auth.log
+echo "Jul 17 02:15:12 linux-prod-db01 sshd[4321]: Accepted publickey for deploy-admin from 198.51.100.42" >> /var/log/auth.log
+echo "Jul 17 02:18:44 linux-prod-db01 sshd[4325]: Accepted publickey for deploy-admin from 203.0.113.88" >> /var/log/auth.log
 
 # 5. Weaponize the Mock 'w' command
 cp "$W_PATH" "${W_PATH}.bak"
@@ -58,7 +36,7 @@ printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "deploy-admin" "pts/2" "203.0
 EOF
 chmod +x "$W_PATH"
 
-# 6. Write the simulated Saviynt CLI tool
+# 6. Write the simulated Saviynt CLI tool (Identity Proxy Edition)
 cat << 'EOF' > /usr/local/bin/saviynt-cli
 #!/bin/bash
 GREEN='\033[0;32m'
@@ -69,152 +47,81 @@ NC='\033[0m'
 
 function show_banner {
     echo -e "${CYAN}=======================================================${NC}"
-    echo -e "${CYAN}   SAVIYNT ENTERPRISE IDENTITY CLOUD (EIC) PAM ENGINE   ${NC}"
-    echo -e "${CYAN}            - COMPLIANCE & JIT SIMULATOR -             ${NC}"
+    echo -e "${CYAN}   SAVIYNT SECURE ACCESS (IDENTITY PROXY) SIMULATOR    ${NC}"
     echo -e "${CYAN}=======================================================${NC}"
 }
 
 if [ "$1" == "onboard" ]; then
     show_banner
-    echo -e "${YELLOW}[*] Registering host 'linux-prod-db01' with Saviynt IGA Control Plane...${NC}"
-    sleep 1.5
+    echo -e "${YELLOW}[*] Routing host 'linux-prod-db01' behind Saviynt Identity Proxy...${NC}"
+    sleep 1
     
+    # Remediation: Nuke the file and lock it down forever
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     > /home/deploy-admin/.ssh/authorized_keys
+    chattr +i /home/deploy-admin/.ssh/authorized_keys
     
-    chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
-    chmod 600 /home/deploy-admin/.ssh/authorized_keys
-    
+    # Restore 'w' binary to clear hacker sessions
     W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
     if [ -f "${W_PATH}.bak" ]; then
         mv "${W_PATH}.bak" "$W_PATH"
     fi
     
-    chattr +i /home/deploy-admin/.ssh/authorized_keys
-    
-    echo -e "${GREEN}[+] Host successfully onboarded to Saviynt EIC!${NC}"
-    echo -e "${RED}[!] CRITICAL: Local authentication architecture is now LOCKED.${NC}"
+    echo -e "${GREEN}[+] Host successfully onboarded! Native SSH bypass is now blocked.${NC}"
     exit 0
 fi
 
 if [ "$1" == "request-jit" ]; then
     show_banner
-    if [ -z "$2" ] || [ -z "$3" ]; then
-        echo -e "${RED}[!] Error: Missing operational parameters.${NC}"
-        echo -e "Usage: saviynt-cli request-jit <contractor_email> <duration_sec>"
-        exit 1
-    fi
     CONTRACTOR="$2"
     DURATION="$3"
     
-    echo -e "${YELLOW}[*] Interrogating Saviynt upstream Policy Engine...${NC}"
+    echo -e "${YELLOW}[*] Validating Identity Risk via Saviynt EIC...${NC}"
     sleep 1
-    echo -e "${GREEN}[+] Dynamic JIT request approved for Identity: $CONTRACTOR${NC}"
-    echo -e "${YELLOW}[*] Temporarily cycling system immutable bits for safe injection...${NC}"
+    echo -e "${GREEN}[+] JIT request approved for: $CONTRACTOR${NC}"
     
-    rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
-    chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
+    # Create the secure time-bound token
+    echo "ACTIVE" > /tmp/jit_token
     
-    ssh-keygen -t ed25519 -f /tmp/jit_temp_key -N "" -q
-    cat /tmp/jit_temp_key.pub >> /home/deploy-admin/.ssh/authorized_keys
-    
-    chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
-    chmod 600 /home/deploy-admin/.ssh/authorized_keys
-    chattr +i /home/deploy-admin/.ssh/authorized_keys
-    
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    RAND_ID=$((10000 + RANDOM % 90000))
-    USER_ID=$((1000 + RANDOM % 9000))
-    
-    cat << JSON >> /var/log/saviynt_pam.log
-{
-  "eventId": "PAM-JIT-${RAND_ID}",
-  "timestamp": "${TIMESTAMP}",
-  "action": "ElevatedAccessGranted",
-  "status": "SUCCESS",
-  "resource": {
-    "endpoint": "linux-prod-db01",
-    "accountName": "deploy-admin",
-    "type": "Production Server"
-  },
-  "identity": {
-    "requestor": "${CONTRACTOR}",
-    "saviyntUserId": "USR-${USER_ID}"
-  },
-  "policy": {
-    "name": "Zero-Trust-Ephemeral-SSH",
-    "durationSeconds": ${DURATION},
-    "approvalReason": "Emergency Payment Gateway Release Modification",
-    "ticketReference": "SNOW-99281"
-  },
-  "audit": {
-    "sessionRecordingEnabled": true,
-    "keystrokeLogging": "Active",
-    "mappedFromIp": "198.51.100.42"
-  }
-}
-JSON
-    
-    echo -e "${GREEN}[+] Ephemeral token injected. Temporary operational access active.${NC}"
-    echo -e "Temporary Private Key Location: /tmp/jit_temp_key"
-    echo -e "Execute verification test: ${YELLOW}ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost${NC}"
-    
-    # Asynchronous pruning daemon (NO SED USED)
+    # Background expiration daemon
     (
         sleep $DURATION
-        TEMP_KEY_CONTENT=$(cat /tmp/jit_temp_key.pub 2>/dev/null)
-        if [ ! -z "$TEMP_KEY_CONTENT" ]; then
-            chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
-            grep -v "$TEMP_KEY_CONTENT" /home/deploy-admin/.ssh/authorized_keys > /tmp/temp_auth
-            cat /tmp/temp_auth > /home/deploy-admin/.ssh/authorized_keys
-            rm -f /tmp/temp_auth /tmp/jit_temp_key /tmp/jit_temp_key.pub
-            chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
-            chmod 600 /home/deploy-admin/.ssh/authorized_keys
-            chattr +i /home/deploy-admin/.ssh/authorized_keys
-            
-            TIMESTAMP_PRUNE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            cat << JSON >> /var/log/saviynt_pam.log
-{
-  "eventId": "PAM-JIT-CLEANUP-${RAND_ID}",
-  "timestamp": "${TIMESTAMP_PRUNE}",
-  "action": "ElevatedAccessRevoked",
-  "status": "SUCCESS",
-  "resource": {
-    "endpoint": "linux-prod-db01",
-    "accountName": "deploy-admin"
-  },
-  "identity": {
-    "requestor": "${CONTRACTOR}"
-  },
-  "policy": {
-    "status": "ExpiredAndPrunedAutomatic"
-  }
-}
-JSON
-        fi
+        rm -f /tmp/jit_token
+        echo -e "\n${RED}[!] JIT Window Expired. Access token revoked by Saviynt Engine.${NC}" > /dev/tty
     ) &
+    
+    echo -e "${GREEN}[+] Broker session primed. Access window: ${DURATION} seconds.${NC}"
+    echo -e "Execute verification test: ${YELLOW}saviynt-cli connect-session${NC}"
+    exit 0
+fi
+
+if [ "$1" == "connect-session" ]; then
+    if [ -f /tmp/jit_token ]; then
+        echo -e "${GREEN}[+] Vault Token Validated. Brokering secure session to deploy-admin...${NC}"
+        # Spawn the subshell, simulating the proxy hand-off
+        sudo -u deploy-admin bash -c "PS1='deploy-admin@linux-prod-db01 (Saviynt Brokered)$ ' bash --noprofile --norc"
+    else
+        echo -e "${RED}[!] Access Denied: No active JIT window found, or session has expired.${NC}"
+    fi
     exit 0
 fi
 
 if [ "$1" == "audit-logs" ]; then
     show_banner
-    echo -e "${CYAN}[*] Streaming structured audit ledger from Saviynt control line:${NC}"
-    if [ -f /var/log/saviynt_pam.log ]; then
-        cat /var/log/saviynt_pam.log
-    else
-        echo "[-] Zero captured identity governance metrics found."
-    fi
+    echo -e "${CYAN}[*] Streaming structured audit ledger:${NC}"
+    echo '{ "eventId": "PAM-JIT-9921", "action": "ElevatedAccessGranted", "status": "SUCCESS", "identity": "contractor@partner.com", "policy": "Zero-Trust-Proxy" }' | jq . 2>/dev/null || echo -e "{\n  \"eventId\": \"PAM-JIT-9921\",\n  \"action\": \"ElevatedAccessGranted\",\n  \"identity\": \"contractor.name@partner.com\",\n  \"policy\": \"Zero-Trust-Proxy\"\n}"
     exit 0
 fi
 
 show_banner
-echo "Available Commands:"
-echo "  saviynt-cli onboard                      Remediate breach, lock host files down via kernel attributes"
-echo "  saviynt-cli request-jit <email> <sec>    Authorize short-lived human-to-account dynamic SSH linkage"
-echo "  saviynt-cli audit-logs                   View identity-enriched compliance JSON stream"
+echo "Commands:"
+echo "  saviynt-cli onboard                      Lock down local host, route via Identity Proxy"
+echo "  saviynt-cli request-jit <email> <sec>    Authorize short-lived access token"
+echo "  saviynt-cli connect-session              Connect via Saviynt Secure Access"
+echo "  saviynt-cli audit-logs                   View identity-enriched compliance logs"
 EOF
 
 chmod +x /usr/local/bin/saviynt-cli
-echo -e "\e[32m[+] Payment Gateway Target Environment Initialized Successfully.\e[0m"
-sleep 1.5
+echo -e "\e[32m[+] Target Environment Initialized Successfully.\e[0m"
+sleep 1
 clear
