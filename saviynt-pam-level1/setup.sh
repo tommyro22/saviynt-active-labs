@@ -2,16 +2,21 @@
 clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
-# 1. Ensure clean slate if re-run
+# 1. Dynamically locate the native 'w' binary and restore clean slate if re-run
+W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
+if [ -f "${W_PATH}.bak" ]; then
+    mv "${W_PATH}.bak" "$W_PATH"
+fi
 chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
 userdel -r deploy-admin 2>/dev/null
+rm -f /usr/local/bin/w
 
 # 2. Create target deploy-admin user and assign dangerous privileges
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
 chmod 700 /home/deploy-admin/.ssh
 
-# INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment commands
+# INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment gateway commands
 echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
 chmod 440 /etc/sudoers.d/deploy-admin
 
@@ -22,12 +27,26 @@ mv /tmp/leaked_id_rsa /home/deploy-admin/leaked_key.pem
 chmod 600 /home/deploy-admin/.ssh/authorized_keys
 chown -R deploy-admin:deploy-admin /home/deploy-admin/
 
-# 4. Simulate active, un-audited background contractor/attacker connections
+# 4. Simulate active, un-audited background contractor/attacker connections in auth.log
 echo "Jul 17 02:15:12 linux-prod-db01 sshd[4321]: Accepted publickey for deploy-admin from 198.51.100.42 port 49152 ssh2: RSA SHA256:leakedfingerprint..." >> /var/log/auth.log
 echo "Jul 17 02:18:44 linux-prod-db01 sshd[4325]: Accepted publickey for deploy-admin from 203.0.113.88 port 51002 ssh2: RSA SHA256:leakedfingerprint..." >> /var/log/auth.log
 nohup sudo -u deploy-admin sleep 3600 > /dev/null 2>&1 &
 
-# 5. Write the simulated Saviynt CLI tool with explicit policy locks and rich JSON telemetry
+# 5. Weaponize the Mock: Back up the real binary and overwrite it at its source location
+cp "$W_PATH" "${W_PATH}.bak"
+cat << 'EOF' > "$W_PATH"
+#!/bin/bash
+TIMESTAMP=$(date +%H:%M:%S)
+UPTIME=$(uptime -p 2>/dev/null || echo "up 1 hour")
+echo " ${TIMESTAMP} ${UPTIME},  3 users,  load average: 0.02, 0.04, 0.00"
+printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "USER" "TTY" "FROM" "LOGIN@" "IDLE" "JCPU" "PCPU" "WHAT"
+printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "root" "pts/0" "10.0.2.2" "02:10" "0.00s" "0.04s" "0.00s" "w"
+printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "deploy-admin" "pts/1" "198.51.100.42" "02:15" "3:14"  "0.02s" "0.01s" "-bash"
+printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "deploy-admin" "pts/2" "203.0.113.88"  "02:18" "1:02"  "0.01s" "0.01s" "-bash"
+EOF
+chmod +x "$W_PATH"
+
+# 6. Write the simulated Saviynt CLI tool with explicit policy locks and rich JSON telemetry
 cat << 'EOF' > /usr/local/bin/saviynt-cli
 #!/bin/bash
 GREEN='\033[0;32m'
@@ -54,6 +73,12 @@ if [ "$1" == "onboard" ]; then
     chown root:root /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
+    # RESTORATION: Automatically restore the genuine 'w' binary to clear fake sessions
+    W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
+    if [ -f "${W_PATH}.bak" ]; then
+        mv "${W_PATH}.bak" "$W_PATH"
+    fi
+    
     # THE STEEL CAGE: Make the file completely immutable at the kernel layer
     chattr +i /home/deploy-admin/.ssh/authorized_keys
     
@@ -78,7 +103,6 @@ if [ "$1" == "request-jit" ]; then
     echo -e "${GREEN}[+] Dynamic JIT request approved for Identity: $CONTRACTOR${NC}"
     echo -e "${YELLOW}[*] Temporarily cycling system immutable bits for safe injection...${NC}"
     
-    # Temporarily drop immutability window to execute programmatic injection
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     
     ssh-keygen -t rsa -b 2048 -f /tmp/jit_temp_key -N "" -q
@@ -86,14 +110,12 @@ if [ "$1" == "request-jit" ]; then
     chown root:root /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
-    # Instantly lock back down to block manual configuration drift
     chattr +i /home/deploy-admin/.ssh/authorized_keys
     
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     RAND_ID=$((10000 + RANDOM % 90000))
     USER_ID=$((1000 + RANDOM % 9000))
     
-    # Telemetry-rich JSON mapping Human Identity directly to the target system account
     cat << JSON >> /var/log/saviynt_pam.log
 {
   "eventId": "PAM-JIT-${RAND_ID}",
@@ -127,7 +149,6 @@ JSON
     echo -e "Temporary Private Key Location: /tmp/jit_temp_key"
     echo -e "Execute verification test: ${YELLOW}ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost${NC}"
     
-    # Asynchronous pruning daemon
     (
         sleep $DURATION
         TEMP_KEY_CONTENT=$(cat /tmp/jit_temp_key.pub 2>/dev/null)
