@@ -10,6 +10,7 @@ Instead of trying to manage local files better, **Saviynt EIC changes the archit
 Contractors and developers no longer hold static keys, nor do they need standing accounts on the servers. They simply request a dynamic, time-bound token from the Saviynt broker. 
 
 Execute a 15-second Just-In-Time (JIT) request:
+
 ```bash
 saviynt-cli request-jit contractor.name@partner.com 15
 ```{{exec}}
@@ -27,6 +28,7 @@ saviynt-cli connect-session
 ```{{exec}}
 
 * **The Experience:** You are instantly dropped into the target environment. Verify your access:
+
 ```bash
 whoami
 ```{{exec}}
@@ -35,6 +37,7 @@ whoami
 * **The Saviynt Value (Frictionless UX):** Saviynt delivers native protocol support. Engineers don't have to leave their command line or change their daily workflows. The Identity Proxy sits transparently in the middle, intercepting the request, validating the token, and spawning the session instantly. **High security, zero operational drag.**
 
 When you are done validating your access, cleanly exit the proxy session:
+
 ```bash
 exit
 ```{{exec}}
@@ -48,7 +51,20 @@ Wait a few seconds for the JIT timer to hit zero. The background engine will aut
 saviynt-cli connect-session
 ```{{exec}}
 
-* **The Result:** The broker rejects the connection with an `Access Denied` error. 
-* **The Saviynt Value (Provable Compliance):** The lifecycle is fully automated. There is no human error, no forgot-to-delete-the-key, and no lingering access. When an auditor asks for proof that contractor access was revoked, the proxy provides absolute, cryptographic certainty that the session was terminated exactly when the approved window expired.
+* **The Result:** The broker rejects the connection with an `Access Denied` error. The cutoff is absolute and immune to local OS manipulation.
 
-Click **Next** to generate the final enriched incident report and prove compliance.
+---
+
+### 4. The Auditor's View (Provable Compliance)
+When a breach happens—or when SOX/PCI auditors arrive—raw operating system logs are useless. A standard Linux `auth.log` only shows that the generic `deploy-admin` account logged in from an IP address. It tells you nothing about the human being behind the keyboard.
+
+Pull the structured audit ledger from the Saviynt control plane:
+
+```bash
+saviynt-cli audit-logs
+```{{exec}}
+
+* **The Saviynt Value (Identity-Enriched Telemetry):** Look at the JSON output. Saviynt translates raw machine data into a human narrative. It maps the exact human identity (`contractor.name@partner.com`), the governance policy invoked (`Zero-Trust-Proxy`), and the exact status of the elevated access. 
+* **The Business Outcome:** What used to take security teams hours of manual correlation between IT service tickets, HR data, and raw server logs is now available instantly. This makes passing audits frictionless and drastically accelerates incident response.
+
+You have successfully secured the environment and proven compliance. Click **Next** to complete the workshop.
