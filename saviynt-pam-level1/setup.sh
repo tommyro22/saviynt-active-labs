@@ -2,9 +2,8 @@
 clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
-# 1. SSHD Config to guarantee lab success and restore clean slate
+# 1. Bulldoze SSHD Config to guarantee lab success and restore clean slate
 mkdir -p /run/sshd
-# Force the daemon to accept keys and ignore container-level permission paranoia
 cat << 'EOF' > /etc/ssh/sshd_config.d/99-saviynt-lab.conf
 PubkeyAuthentication yes
 StrictModes no
@@ -24,25 +23,28 @@ rm -f /usr/local/bin/w
 # 2. Create target deploy-admin user and assign dangerous privileges
 useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
-chmod 700 /home/deploy-admin/.ssh
 
 # INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment gateway commands
 echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
 chmod 440 /etc/sudoers.d/deploy-admin
 
-# 3. Generate a mock "leaked" static key pair matching the incident scope
+# 3. Generate a mock "leaked" static key pair matching the incident scope (ED25519)
 ssh-keygen -t ed25519 -f /tmp/leaked_id_rsa -N "" -q
 cat /tmp/leaked_id_rsa.pub > /home/deploy-admin/.ssh/authorized_keys
 mv /tmp/leaked_id_rsa /home/deploy-admin/leaked_key.pem
+
+# ENFORCE STRICT SSH DIRECTORY PERMISSIONS
+chown -R deploy-admin:deploy-admin /home/deploy-admin
+chmod 755 /home/deploy-admin
+chmod 700 /home/deploy-admin/.ssh
 chmod 600 /home/deploy-admin/.ssh/authorized_keys
-chown -R deploy-admin:deploy-admin /home/deploy-admin/
 
 # 4. Simulate active, un-audited background contractor/attacker connections in auth.log
-echo "Jul 17 02:15:12 linux-prod-db01 sshd[4321]: Accepted publickey for deploy-admin from 198.51.100.42 port 49152 ssh2: RSA SHA256:leakedfingerprint..." >> /var/log/auth.log
-echo "Jul 17 02:18:44 linux-prod-db01 sshd[4325]: Accepted publickey for deploy-admin from 203.0.113.88 port 51002 ssh2: RSA SHA256:leakedfingerprint..." >> /var/log/auth.log
+echo "Jul 17 02:15:12 linux-prod-db01 sshd[4321]: Accepted publickey for deploy-admin from 198.51.100.42 port 49152 ssh2: ED25519 SHA256:leakedfingerprint..." >> /var/log/auth.log
+echo "Jul 17 02:18:44 linux-prod-db01 sshd[4325]: Accepted publickey for deploy-admin from 203.0.113.88 port 51002 ssh2: ED25519 SHA256:leakedfingerprint..." >> /var/log/auth.log
 nohup sudo -u deploy-admin sleep 3600 > /dev/null 2>&1 &
 
-# 5. Weaponize the Mock: Back up the real binary and overwrite it at its source location
+# 5. Weaponize the Mock 'w' command
 cp "$W_PATH" "${W_PATH}.bak"
 cat << 'EOF' > "$W_PATH"
 #!/bin/bash
@@ -56,7 +58,7 @@ printf "%-10s %-7s %-16s %-6s %-6s %-6s %-6s %s\n" "deploy-admin" "pts/2" "203.0
 EOF
 chmod +x "$W_PATH"
 
-# 6. Write the simulated Saviynt CLI tool with explicit policy locks and rich JSON telemetry
+# 6. Write the simulated Saviynt CLI tool
 cat << 'EOF' > /usr/local/bin/saviynt-cli
 #!/bin/bash
 GREEN='\033[0;32m'
@@ -77,26 +79,21 @@ if [ "$1" == "onboard" ]; then
     echo -e "${YELLOW}[*] Registering host 'linux-prod-db01' with Saviynt IGA Control Plane...${NC}"
     sleep 1.5
     
-    # REMEDIATION: Wipe the compromised static keys file entirely
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     > /home/deploy-admin/.ssh/authorized_keys
     
-    # FIX: Correct ownership alignment for OpenSSH StrictModes validation
     chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
     
-    # RESTORATION: Automatically restore the genuine 'w' binary to clear fake sessions
     W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
     if [ -f "${W_PATH}.bak" ]; then
         mv "${W_PATH}.bak" "$W_PATH"
     fi
     
-    # THE STEEL CAGE: Make the file completely immutable at the kernel layer
     chattr +i /home/deploy-admin/.ssh/authorized_keys
     
     echo -e "${GREEN}[+] Host successfully onboarded to Saviynt EIC!${NC}"
     echo -e "${RED}[!] CRITICAL: Local authentication architecture is now LOCKED.${NC}"
-    echo -e "${RED}[!] Direct manual key injection will now fail with OS-level errors.${NC}"
     exit 0
 fi
 
@@ -115,19 +112,14 @@ if [ "$1" == "request-jit" ]; then
     echo -e "${GREEN}[+] Dynamic JIT request approved for Identity: $CONTRACTOR${NC}"
     echo -e "${YELLOW}[*] Temporarily cycling system immutable bits for safe injection...${NC}"
     
-   # CLEAN SWEEP: Erase any historical keys to prevent overwrite prompt loops
     rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
-    
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     
-    # UPGRADE: Use ed25519 to bypass modern OpenSSH RSA restrictions
     ssh-keygen -t ed25519 -f /tmp/jit_temp_key -N "" -q
     cat /tmp/jit_temp_key.pub >> /home/deploy-admin/.ssh/authorized_keys
     
-    # FIX: Maintain StrictModes validation capability for the incoming loopback connection
     chown deploy-admin:deploy-admin /home/deploy-admin/.ssh/authorized_keys
     chmod 600 /home/deploy-admin/.ssh/authorized_keys
-    
     chattr +i /home/deploy-admin/.ssh/authorized_keys
     
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -167,6 +159,7 @@ JSON
     echo -e "Temporary Private Key Location: /tmp/jit_temp_key"
     echo -e "Execute verification test: ${YELLOW}ssh -o StrictHostKeyChecking=no -i /tmp/jit_temp_key deploy-admin@localhost${NC}"
     
+    # Asynchronous pruning daemon (NO SED USED)
     (
         sleep $DURATION
         TEMP_KEY_CONTENT=$(cat /tmp/jit_temp_key.pub 2>/dev/null)
