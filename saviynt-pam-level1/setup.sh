@@ -15,8 +15,7 @@ useradd -m -s /bin/bash deploy-admin
 mkdir -p /home/deploy-admin/.ssh
 
 # INJECT THE BLAST RADIUS: Grant passwordless sudo for critical payment gateway commands
-echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" > /etc/sudoers.d/deploy-admin
-chmod 440 /etc/sudoers.d/deploy-admin
+echo "deploy-admin ALL=(ALL:ALL) NOPASSWD: /usr/bin/systemctl restart payment-gateway, /usr/bin/psql" >> /etc/sudoers
 
 # 3. Create the "Leaked Key" narrative (Simulating the vulnerability)
 echo "ssh-rsa AAAAB3_leaked_hacker_key..." > /home/deploy-admin/.ssh/authorized_keys
