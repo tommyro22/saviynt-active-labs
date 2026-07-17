@@ -2,8 +2,11 @@
 clear
 echo -e "\e[33m[*] Initializing Vulnerable Linux Target... Please wait.\e[0m"
 
-# 1. Start SSH daemon and restore clean slate if re-run
-service ssh start > /dev/null 2>&1
+# 1. Start SSH daemon, enforce pubkey auth, and restore clean slate
+mkdir -p /run/sshd
+echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+service ssh restart > /dev/null 2>&1
+
 W_PATH=$(which w 2>/dev/null || echo "/usr/bin/w")
 if [ -f "${W_PATH}.bak" ]; then
     mv "${W_PATH}.bak" "$W_PATH"
@@ -22,7 +25,7 @@ echo "deploy-admin ALL=(root) NOPASSWD: /usr/bin/systemctl restart payment-gatew
 chmod 440 /etc/sudoers.d/deploy-admin
 
 # 3. Generate a mock "leaked" static key pair matching the incident scope
-ssh-keygen -t rsa -b 2048 -f /tmp/leaked_id_rsa -N "" -q
+ssh-keygen -t ed25519 -f /tmp/leaked_id_rsa -N "" -q
 cat /tmp/leaked_id_rsa.pub > /home/deploy-admin/.ssh/authorized_keys
 mv /tmp/leaked_id_rsa /home/deploy-admin/leaked_key.pem
 chmod 600 /home/deploy-admin/.ssh/authorized_keys
@@ -106,12 +109,13 @@ if [ "$1" == "request-jit" ]; then
     echo -e "${GREEN}[+] Dynamic JIT request approved for Identity: $CONTRACTOR${NC}"
     echo -e "${YELLOW}[*] Temporarily cycling system immutable bits for safe injection...${NC}"
     
-    # CLEAN SWEEP: Erase any historical keys to prevent overwrite prompt loops
+   # CLEAN SWEEP: Erase any historical keys to prevent overwrite prompt loops
     rm -f /tmp/jit_temp_key /tmp/jit_temp_key.pub
     
     chattr -i /home/deploy-admin/.ssh/authorized_keys 2>/dev/null
     
-    ssh-keygen -t rsa -b 2048 -f /tmp/jit_temp_key -N "" -q
+    # UPGRADE: Use ed25519 to bypass modern OpenSSH RSA restrictions
+    ssh-keygen -t ed25519 -f /tmp/jit_temp_key -N "" -q
     cat /tmp/jit_temp_key.pub >> /home/deploy-admin/.ssh/authorized_keys
     
     # FIX: Maintain StrictModes validation capability for the incoming loopback connection
