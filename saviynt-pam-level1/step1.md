@@ -1,28 +1,70 @@
 # Step 1: Analyze the Threat & Detect Active Sessions
 
-### 0. Bootstrap the Vulnerable Target
-Before we begin the investigation, let's provision the mock database server and simulate the leaked credential scenario. 
-
-Click the command below to build the vulnerable environment:
-`curl -s https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh | tr -d '\r' | bash`{{exec}}
+### 0. Environmental Provisioning
+Run this bootstrap command to deploy the Payment Gateway server, simulate the live incident, and inject background sessions:
+```bash
+curl -s [https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh](https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh) | tr -d '\r' | bash
+```{{exec}}
 
 ---
 
-Let's locate the leaked credential on the host and identify running connections.
+### 1. Identify Your Environment Context
+Before analyzing logs, you must understand exactly *who* and *where* you are within this Linux system. Run this command to discover your current identity and system access groups:
+```bash
+whoami && pwd && groups
+```{{exec}}
 
-### 1. View the Exposed Key
-Verify that the leaked private key exists on your local system:
-`cat /home/deploy-admin/leaked_key.pem`{{exec}}
+* **The Reality Check:** You are currently logged in as the root user at the root directory. However, the compromise has occurred on a specific, non-root administrative account: `deploy-admin`.
 
-### 2. Verify the Active Session
-Check the local system's active background processes. You will notice that an active administrative process is currently running under the shared `deploy-admin` account (representing the external contractor's session):
-`ps aux | grep deploy-admin`{{exec}}
+---
 
-### 3. Analyze Authentication Logs
-Read the authorization log to see where active connections originated:
-`cat /var/log/auth.log | grep sshd`{{exec}}
+### 2. The Core Mechanic: The SSH Cryptographic Handshake
+Why is the `deploy-admin` account compromised just because a file was leaked on GitHub?
+* **The Handshake:** SSH relies on public/private key pairs. The **public key** acts like a lock and lives on the server inside a specific user’s home directory (`~/.ssh/authorized_keys`). The **private key** acts like the physical key and is held by the remote user.
+* **The Risk:** If an attacker acquires the private key (`payment-gateway-cluster.pem`), they bypass all password prompts and instantly inherit the exact permissions and privileges assigned to `deploy-admin` on this operating system.
 
-### The Identity Friction
-As a Security Engineer, you can see a session is active, but **who** actually logged in? Because they are using a shared static SSH key, you have **zero traceability** connecting the UNIX account to a real human identity. 
+---
 
-If a malicious actor uses this exact same leaked key from a rogue IP while the contractor is working, your logs will look identical.
+### 3. Audit the Attacker's Blast Radius (Permissions)
+Investigate exactly what capabilities an attacker inherits when they log in using that stolen key. Run this command to check the specific `sudo` (administrative) capabilities assigned to `deploy-admin`:
+```bash
+sudo -l -U deploy-admin
+```{{exec}}
+
+* **The Exposure:** Look at the output. `deploy-admin` has highly elevated or unrestricted access to run deployment tools and alter database states. The attacker does not need the root password; they already control the application.
+
+---
+
+### 4. Track Active Sessions (Who is on the box?)
+An attacker using a key leaves a live footprint. Run this standard Linux utility to see every user session currently active on the system and where they connected from:
+```bash
+w
+```{{exec}}
+
+* **The Problem:** You see multiple active terminal sessions listed under the single `deploy-admin` account, originating from different remote IP addresses.
+
+---
+
+### 5. Part 1: The Blindspot Incident Report
+Copy the layout below into a local text editor or scratchpad. Fill out the missing variables using the raw Linux data you discovered from `sudo -l` and `w`.
+
+```text
+============================================================
+INCIDENT REPORT - PART 1: LOCAL HOST VISIBILITY
+============================================================
+Target Hostname?
+Compromised OS Account?
+
+OS Account Permissions (Blast Radius from sudo -l):
+ -> 
+
+Active Sessions Found (Output of 'w' command):
+ -> Session 1 Account: deploy-admin | Source IP:
+ -> Session 2 Account: deploy-admin | Source IP:
+
+CRITICAL IDENTITY CHALLENGE:
+1. Which session is the legitimate contractor?
+2. Which session is the malicious threat actor?
+3. Real Human Name behind Session 1:           
+4. Real Human Name behind Session 2:          
+============================================================
