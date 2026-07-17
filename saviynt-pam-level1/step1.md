@@ -2,10 +2,8 @@
 
 ### 0. Environmental Provisioning
 Run this bootstrap command to deploy the Payment Gateway server, simulate the live incident, and inject background sessions:
-```bash
-curl -s [https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh](https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh) | tr -d '\r' | bash
-```{{exec}}
 
+`curl -s https://raw.githubusercontent.com/tommyro22/saviynt-active-labs/main/saviynt-pam-level1/setup.sh | tr -d '\r' | bash`{{exec}}
 ---
 
 ### 1. Identify Your Environment Context
